@@ -10,7 +10,7 @@ const PQ_STATUS_TAGS = "tags:cdegilqtuy" + (LMS_VERSION>=90000 ? "bhz124" : "") 
 const PQ_REQUIRE_AT_LEAST_1_ITEM = new Set([PQ_SAVE_ACTION, PQ_MOVE_QUEUE_ACTION, PQ_SCROLL_ACTION, PQ_SORT_ACTION, REMOVE_DUPES_ACTION]);
 const PQ_REQUIRE_MULTIPLE_ITEMS = new Set([PQ_SCROLL_ACTION, SEARCH_LIST_ACTION, PQ_SORT_ACTION, REMOVE_DUPES_ACTION]);
 const pqGroupingMap = new Map();
-const PQ_REMOVE_ACTIONS = [PQ_REMOVE_TRACK_ACTION, PQ_REMOVE_DISC_ACTION, PQ_REMOVE_ALBUM_ACTION, PQ_REMOVE_ARTIST_ACTION];
+const PQ_REMOVE_ACTIONS = [PQ_REMOVE_TRACK_ACTION, PQ_REMOVE_WORK_ACTION, PQ_REMOVE_DISC_ACTION, PQ_REMOVE_ALBUM_ACTION, PQ_REMOVE_ARTIST_ACTION];
 
 function queueMakePlain(str) {
     let rating = str.indexOf(SEPARATOR+RATINGS_START);
@@ -240,6 +240,8 @@ function parseResp(data, showTrackNum, index, showRatings, queueAlbumStyle, queu
                               key: i.id+"."+index,
                               album_id: i.album_id,
                               artist_id: i.artist_id,
+                              work_id: i.work_id,
+                              performance: i.performance,
                               disc: i.disc,
                               groupId: groupId,
                               url: i.url,
@@ -384,11 +386,11 @@ var lmsQueue = Vue.component("lms-queue", {
      </v-list-tile-avatar>
      <v-list-tile-title>{{ACTIONS[UNSELECT_ACTION].title}}</v-list-tile-title>
     </v-list-tile>
-    <div v-else-if="action==REMOVE_ACTION && ((undefined!=menu.item.disc && menu.item.disc>0) || (undefined!=menu.item.album_id))">
+    <div v-else-if="action==REMOVE_ACTION && ((undefined!=menu.item.disc && menu.item.disc>0) || (undefined!=menu.item.album_id) || (undefined!=menu.item.work_id))">
      <v-list-group v-model="menuExpanded" @click.stop="">
       <template v-slot:activator><v-list-tile role="menuitem"><v-list-tile-content><v-list-tile-title>{{ACTIONS[REMOVE_ACTION].title}}</v-list-tile-title></v-list-tile-content><v-list-tile></template>
       <template v-for="subAction in PQ_REMOVE_ACTIONS">
-       <v-list-tile role="menuitem" @click="itemAction(subAction, menu.item, menu.index, $event)" v-if="(PQ_REMOVE_DISC_ACTION==subAction && undefined!=menu.item.disc && menu.item.disc>0) || (PQ_REMOVE_ALBUM_ACTION==subAction && undefined!=menu.item.album_id) || (PQ_REMOVE_ARTIST_ACTION==subAction && undefined!=menu.item.artist_id) || PQ_REMOVE_TRACK_ACTION==subAction">
+       <v-list-tile role="menuitem" @click="itemAction(subAction, menu.item, menu.index, $event)" v-if="(PQ_REMOVE_DISC_ACTION==subAction && undefined!=menu.item.disc && menu.item.disc>0) || (PQ_REMOVE_ALBUM_ACTION==subAction && undefined!=menu.item.album_id) || (PQ_REMOVE_ARTIST_ACTION==subAction && undefined!=menu.item.artist_id) || (PQ_REMOVE_WORK_ACTION==subAction && undefined!=menu.item.work_id) || PQ_REMOVE_TRACK_ACTION==subAction">
         <v-list-tile-avatar>
          <v-icon v-if="undefined==ACTIONS[subAction].svg">{{ACTIONS[subAction].icon}}</v-icon>
          <img v-else class="svg-img" :src="ACTIONS[subAction].svg | svgIcon(darkUi)"></img>
@@ -1099,6 +1101,16 @@ var lmsQueue = Vue.component("lms-queue", {
             } else if (PQ_REMOVE_ARTIST_ACTION==act) {
                 this.clearSelection();
                 bus.$emit('playerCommand', ["playlistcontrol", "cmd:delete", "artist_id:"+item.artist_id, "library_id:"+LMS_DEFAULT_LIBRARY]);
+            } else if (PQ_REMOVE_WORK_ACTION==act) {
+                this.clearSelection();
+                let cmd = ["playlistcontrol", "cmd:delete", "work_id:"+item.work_id, "library_id:"+LMS_DEFAULT_LIBRARY];
+                if (undefined!=item.album_id) {
+                    cmd.push("album_id:"+item.album_id);
+                }
+                if (item.performance) {
+                    cmd.push("performance:"+item.performance);
+                }
+                bus.$emit('playerCommand', cmd);
             } else if (MORE_ACTION===act) {
                 let clone = JSON.parse(JSON.stringify(item));
                 clone.title = queueMakePlain(item.title);
